@@ -2533,7 +2533,11 @@ async function showResult(){ const R=computeResult(), A=DATA.attributes, ch=A[R.
       if(s==='url') return copy();
       // 카카오 앱 키가 있으면 카카오톡 공유창을 바로 열고, 없으면 휴대폰 공유 목록(카카오톡 포함)을 띄움
       if(await kakaoShare(txt)) return;
-      if(navigator.share){ try{ await navigator.share({title:'조선시대에서 살아남기',text:txt,url:SHARE_URL}); }catch(e){} } else await copy('링크를 복사했어요. 카카오톡 대화창에 붙여 넣어 주세요'); });
+      // 컴퓨터·휴대폰 공유 창: 나의 유형 이미지와 링크를 함께 보내고, 목록에서 카카오톡을 고르면 됨
+      if(navigator.share){ const T=await makeTypeImage(C,A[R.main].name,A[R.sub].name,img); const data={title:'조선시대에서 살아남기',text:`${txt}\n${SHARE_URL}`};
+        if(T&&navigator.canShare&&navigator.canShare({...data,files:[T.file]})) data.files=[T.file]; else data.url=SHARE_URL;
+        try{ await navigator.share(data); return; }catch(e){ if(e&&e.name==='AbortError') return; try{ await navigator.share({title:data.title,text:txt,url:SHARE_URL}); return; }catch(_){ } } }
+      await copy('링크를 복사했어요. 카카오톡 대화창에 붙여 넣어 주세요'); });
     $('saveType').onclick=()=>saveTypeImage(C,A[R.main].name,A[R.sub].name,img).then(m=>m&&toast(m)); }
   { const C={}; el.querySelectorAll('img[data-pj]').forEach(im=>{ const n=im.dataset.pj; (C[n]=C[n]||fetch('pj/'+n+'.json').then(r=>r.json()).catch(()=>({}))).then(d=>{ if(d[im.dataset.id]) im.src=d[im.dataset.id]; else im.onerror(); }); }); }
   cv.style.visibility='hidden'; $('dream').classList.remove('on'); el.classList.add('on'); el.scrollTop=0; AU.chime(); $('again2').onclick=()=>location.reload(); }
@@ -2546,7 +2550,7 @@ function kakaoShare(text){ return new Promise(res=>{ if(!KAKAO_KEY) return res(f
   const go=()=>{ try{ if(!Kakao.isInitialized()) Kakao.init(KAKAO_KEY); Kakao.Share.sendDefault({objectType:'text',text,link:{mobileWebUrl:SHARE_URL,webUrl:SHARE_URL},buttonTitle:'나도 해 보기'}); res(true); }catch(e){ res(false); } };
   if(window.Kakao) return go(); const sc=document.createElement('script'); sc.src='https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js'; sc.onload=go; sc.onerror=()=>res(false); document.head.appendChild(sc); setTimeout(()=>res(false),4000); }); }
 // 나의 유형 카드 이미지를 만들어 저장 (휴대폰은 공유 목록에서 사진 저장 가능)
-async function saveTypeImage(C,mainName,subName,charImg){ const W=1080,H=1350, c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d');
+async function makeTypeImage(C,mainName,subName,charImg){ const W=1080,H=1350, c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d');
   const load=src=>new Promise(r=>{ if(!src) return r(null); const im=new Image(); im.onload=()=>r(im); im.onerror=()=>r(null); im.src=src; });
   try{ await document.fonts.ready; }catch(e){}
   const bg=await load(SCREEN_URL), ch=await load(charImg);
@@ -2563,8 +2567,8 @@ async function saveTypeImage(C,mainName,subName,charImg){ const W=1080,H=1350, c
   g.strokeStyle='#8a3b1e'; g.lineWidth=3; g.strokeRect(36,36,W-72,H-72);
   g.fillStyle='#8a3b1e88'; g.font=`26px ${serif}`; g.fillText('ekgpekgp2297-max.github.io/joseon-game',W/2,1268);
   const name=`나의유형_${C.name.replace(/\s/g,'')}.png`;
-  const blob=await new Promise(r=>c.toBlob(r,'image/png')); if(!blob) return '이미지를 만들지 못했어요';
-  const file=new File([blob],name,{type:'image/png'});
+  const blob=await new Promise(r=>c.toBlob(r,'image/png')); return blob?{blob,name,file:new File([blob],name,{type:'image/png'})}:null; }
+async function saveTypeImage(C,mainName,subName,charImg){ const T=await makeTypeImage(C,mainName,subName,charImg); if(!T) return '이미지를 만들지 못했어요'; const {blob,name,file}=T;
   if(/Android|iPhone|iPad/i.test(navigator.userAgent)&&navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:'나의 여행 유형'}); return ''; }catch(e){ if(e&&e.name==='AbortError') return ''; } }
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); return '이미지를 저장했어요'; }
 /* ---------- 마을 사람들 ---------- */
